@@ -319,6 +319,34 @@ def rename_class_field(
     )
 
 @mcp.tool()
+def search_strings(
+    filepath: Annotated[str, "full apk file path"],
+    search_term: Annotated[str, "the string to search for in the APK"],
+    case_sensitive: Annotated[bool, "whether the search should be case sensitive"] = False,
+) -> list[dict]:
+    """
+    Search for strings in the APK file that contain the search term.
+    Returns a list of matching strings with their addresses and cross-references.
+    
+    Each result contains:
+    - string: The actual string value found
+    - index: The string's index in the DEX file
+    - xrefs: List of cross-references showing where the string is used, including:
+        - address: The address of the reference
+        - method: The method signature containing the reference
+        - details: Additional details about the reference
+    
+    Args:
+        filepath: Absolute path to the APK file
+        search_term: The string to search for (substring match)
+        case_sensitive: Whether the search should be case sensitive (default: False)
+    
+    Returns:
+        List of dicts with 'string', 'index', and 'xrefs' keys
+    """
+    return make_jsonrpc_request("search_strings", filepath, search_term, case_sensitive)
+
+@mcp.tool()
 def check_java_identifier(
     filepath: Annotated[str, "full apk file path"],
     identifier: Annotated[

@@ -952,6 +952,66 @@ def replace_last_once(s, old, new):
 
 
 @jsonrpc
+def search_strings(filepath, search_term, case_sensitive=False):
+    """
+    Search for strings in the APK file that contain the search term.
+    Returns a list of matching strings with their addresses and xrefs.
+    
+    Args:
+        filepath: Absolute path to the APK file
+        search_term: The string to search for
+        case_sensitive: Whether the search should be case sensitive (default: False)
+    
+    Returns:
+        List of dicts with 'string', 'address', and 'xrefs' keys
+    """
+    if not filepath or not search_term:
+        raise JSONRPCError(-1, ErrorMessages.MISSING_PARAM)
+    search_term = search_term if case_sensitive else search_term.lower()
+    
+    results = []
+    
+    apk = getOrLoadApk(filepath)
+    codeUnit = apk.getDex()
+    stringItems = codeUnit.getStrings()
+    
+    for stringItem in stringItems:
+        string_value = stringItem.getValue()
+        if string_value is None:
+            continue
+            
+        string_compare = string_value if case_sensitive else string_value.lower()
+        if search_term in string_compare:
+            string_index = stringItem.getIndex()
+            
+            # Get cross-references to this string
+            xrefs = []
+            actionXrefsData = ActionXrefsData()
+            actionContext = ActionContext(codeUnit, Actions.QUERY_XREFS, stringItem.getItemId(), None)
+            if codeUnit.prepareExecution(actionContext, actionXrefsData):
+                for i in range(actionXrefsData.getAddresses().size()):
+                    xref_addr = actionXrefsData.getAddresses()[i]
+                    xref_detail = actionXrefsData.getDetails()[i]
+                    
+                    method = codeUnit.getMethodByAddress(xref_addr)
+                    method_sig = method.getSignature(True) if method else "Unknown"
+                    
+                    xrefs.append({
+                        "address": xref_addr,
+                        "method": method_sig,
+                        "details": xref_detail
+                    })
+            
+            results.append({
+                "string": string_value,
+                "index": string_index,
+                "xrefs": xrefs
+            })
+    
+    return results
+
+
+@jsonrpc
 def check_java_identifier(filepath, identifier):
     """
     Check an identifier in the APK file and recognize if this is a class, method or field.
